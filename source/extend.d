@@ -1,6 +1,8 @@
 import std.stdio;
 import std.conv;
 import std.functional;
+import std.algorithm;
+import std.range;
 import std.numeric;
 import core.stdc.stdlib;
 import lib;
@@ -184,16 +186,40 @@ Obj libtimes(Vm vm, Obj[] args) {
     return Obj(ret);
 }
 
+Obj liblength(Vm vm, Obj[] args) {
+    if (args[0].peek!string) {
+        return Obj(args[0].get!string.length);
+    }
+    else {
+        return Obj(args[0].get!(Obj[]).length);
+    }
+}
+
+Obj libref(Vm vm, Obj[] args) {
+    return args[0].get!(Obj[])[cast(ulong) args[1].get!double];
+}
+
+Obj libvars(Vm vm, Obj[] args) {
+    Obj[] ret = [];
+    foreach(k; vm.locals[$-1].keys) {
+        ret ~= Obj(k);
+    }
+    return Obj(ret);
+}
+
 Obj[string] xfuncs() {
     return [
+        "vars": funcObj!"{}"(&libvars),
         "print": funcObj!"{(*a)}"(&libprint),
         "println": funcObj!"{(*a)}"(&libprintln),
         "newline": funcObj!"{}"(&libnewline),
         "range": funcObj!"{(+n)}"(&librange),
         "apply": funcObj!"{f(*l)}"(&libapply),
-        "map": funcObj!"{f(*l)}"(&libmap),
+        "map": funcObj!"{f(+l)}"(&libmap),
         "list": funcObj!"{(*a)}"(&liblist),
         "times": funcObj!"{na}"(&libtimes),
+        "length": funcObj!"{[sl]}"(&liblength),
+        "ref": funcObj!"{ln}"(&liblength),
         "do": funcObj!"{(+a)}"(&libdo),
         "+": funcObj!"{(*n)}"(&libadd),
         "-": funcObj!"{(+n)}"(&libsub),

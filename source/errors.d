@@ -191,51 +191,96 @@ Obj funcCheck(string S)(Vm vm, Obj func, Obj[] args) {
     redo:
     bool isokay = exp.okay(args, &ind) && ind == args.length;
     if (!isokay) {
-        writeln("error: bad arguments to a func");
+        writeln;
+        writeln("error: bad args to a func");
         begin:
         write("(error): ");
         string line = readln[0..$-1];
+        string[] split = line.split(":");
         if (line == "help" || line == "?" || line == "options") {
             writeln("options: ");
             writeln("  help: display help");
             writeln("  return: dont call function, return value instead");
             writeln("  args: replace args with values");
+            writeln("  show: show bad args");
+            writeln("  repl: enter an error repl");
             writeln("  kill: exit wish custom status");
             writeln("  exit: exit with status 1");
             goto begin;
         }
-        if (line == "return") {
-            write("(return): ");
-            line = readln[0..$-1];
+        if (split.length == 0) {
+            writeln("unknown option: []");
+            goto begin;
+        }
+        if (split[0] == "kill") {
+            if (split.length == 1) {
+                write("(return): ");
+                line = readln[0..$-1];
+            }
+            else {
+                line = line[split[0].length+1..$];
+            }
             ulong index = 0;
             Program program = new Program;
             Node n = parse1(line, &index);
             program.walk(n);
             return vm.run(program);
         }
-        if (line == "args") {
-            write("(args): ");
-            string code = readln[0..$-1];
+        if (split[0] == "show") {
+            writeln(args);
+            goto begin;
+        }
+        if (split[0] == "args") {
+            if (split.length == 1) {
+                write("(args): ");
+                line = readln[0..$-1];
+            }
+            else {
+                line = line[split[0].length+1..$];
+            }
             args = [];
             ulong index = 0;
-            while (index < code.length) {
-                Node n = parse1(code, &index);
+            while (index < line.length) {
+                Node n = parse1(line, &index);
                 Program program = new Program;
                 program.walk(n);
                 args ~= vm.run(program);
             }
             goto redo;
         }
-        if (line == "kill") {
-            write("(status): ");
-            line = readln[0..$-1];
+        if (split[0] == "return" || split[0] == "replace") {
+            if (split.length == 1) {
+                write("(args): ");
+                line = readln[0..$-1];
+            }
+            else {
+                line = line[split[0].length+1..$];
+            }
+            ulong index = 0;
+            Node n = parse1(line, &index);
+            Program program = new Program;
+            program.walk(n);
+            return vm.run(program);
+        }
+        if (line == "repl"){
+            errorRepl(vm);
+            goto begin;
+        }
+        if (split[0] == "kill") {
+            if (split.length == 1) {
+                write("(status): ");
+                line = readln[0..$-1];
+            }
+            else {
+                line = line[split[0].length+1..$];
+            }
             ulong index = 0;
             Program program = new Program;
             Node n = parse1(line, &index);
             program.walk(n);
             exit(to!int(vm.run(program).get!double));
         }
-        if (line == "exit") {
+        if (split[0] == "exit") {
             exit(1);
         }
         writeln("unknown option: ", line);

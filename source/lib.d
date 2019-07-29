@@ -1,8 +1,12 @@
 import std.stdio;
+import std.algorithm;
+import std.string;
 import core.stdc.stdlib;
 import std.conv;
+import std.range;
 import app;
 import extend;
+import errors;
 
 Obj[] toList(P...) (P rest) {
     Obj[] ret = [];
@@ -28,30 +32,72 @@ Obj get(Vm vm, string name) {
             return layer[name];
         }
     }
+    writeln;
     writeln("error: name ", name," not found");
-    options:
-    writeln("options:");
-    writeln("  0 = exit and return 1");
-    writeln("  1 = exit type return value");
-    writeln("  2 = type new name");
-    write("choice: ");
-    string ln = readln[0..$-1];
-    if (ln == "0") {
-        exit(0);
+    begin:
+    write("(error): ");
+    string line = readln[0..$-1];
+    string[] split = line.split(":");
+    if (split.length == 0) {
+        writeln("unknown option: []");
+        goto begin;
     }
-    else if (ln == "1") {
-        write("return value: ");
-        string input = readln[0..$-1];
-        exit(parse!int(input));
+    if (split[0] == "help" || split[0] == "?" || split[0] == "options") {
+        writeln("  help: display help");
+        writeln("  change: replace name lookup with value");
+        writeln("  name: change name to lookup");
+        writeln("  repl: enter an error repl");
+        writeln("  kill: exit wish custom status");
+        writeln("  exit: exit with status 1");
+        goto begin;
     }
-    else if (ln == "2") {
-        write("name: ");
-        name = readln[0..$-1];
+    if (split[0] == "name" || split[0] == "lookup") {
+        if (split.length == 1) {
+            write("(name): ");
+            line = readln[0..$-1];
+        }
+        else {
+            line = line[split[0].length+1..$];
+        }
+        line = line.strip;
+        name = line;
         goto redo;
     }
-    else {
-        writeln("not understood: ", ln);
-        goto options;
+    if (split[0] == "replace" || split[0] == "expr" || split[0] == "change") {
+        if (split.length == 1) {
+            write("(expr): ");
+            line = readln[0..$-1];
+        }
+        else {
+            line = line[split[0].length+1..$];
+        }
+        ulong index = 0;
+        Program program = new Program;
+        Node n = parse1(line, &index);
+        program.walk(n);
+        return vm.run(program);
     }
-    assert(0);
+    if (split[0] == "kill") {
+        if (split.length == 1) {
+            write("(status): ");
+            line = readln[0..$-1];
+        }
+        else {
+            line = line[split[0].length+1..$];
+        }
+        ulong index = 0;
+        Program program = new Program;
+        Node n = parse1(split[0], &index);
+        program.walk(n);
+        exit(to!int(vm.run(program).get!double));
+    }
+    if (line == "repl"){
+        errorRepl(vm);
+        goto begin;
+    }
+    if (line == "exit") {
+        exit(1);
+    }
+    writeln("unknown option: ", line);
+    goto begin;
 }
