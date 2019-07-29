@@ -1,0 +1,9 @@
+{
+	"name": "dex",
+	"authors": [
+		"shaw summa"
+	],
+	"description": "Dex Compiler",
+	"copyright": "Copyright © 2019, shaw summa",
+	"license": "MIT"
+}

@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+dex.so
+dex.dylib
+dex.dll
+dex.a
+dex.lib
+dex-test-*
+*.exe
+*.o
+*.obj
+*.lst
+dex
+perf*

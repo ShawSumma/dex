@@ -1,0 +1,2 @@
+(define fun (lambda (x) x))
+(println (fun 1 2 3))
