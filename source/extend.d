@@ -8,6 +8,8 @@ import core.stdc.stdlib;
 import lib;
 import app;
 import errors;
+import vm;
+import obj;
 
 Obj libprint(Vm vm, Obj[] args) {
     foreach(arg; args) {

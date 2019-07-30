@@ -6,6 +6,10 @@ import std.algorithm;
 import std.range;
 import lib;
 import app;
+import obj;
+import vm;
+import node;
+import parse;
 
 void errorRepl(Vm vm) {
     Obj[string] ll = vm.lastlocals;

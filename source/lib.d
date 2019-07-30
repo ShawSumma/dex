@@ -9,6 +9,10 @@ import app;
 import extend;
 import errors;
 import namecheck;
+import obj;
+import vm;
+import node;
+import parse;
 
 Obj[] toList(P...) (P rest) {
     Obj[] ret = [];
