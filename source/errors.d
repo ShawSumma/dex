@@ -191,7 +191,6 @@ Obj funcCheck(string S)(Vm vm, Obj func, Obj[] args) {
     redo:
     bool isokay = exp.okay(args, &ind) && ind == args.length;
     if (!isokay) {
-        writeln;
         writeln("error: bad args to a func");
         begin:
         write("(error): ");

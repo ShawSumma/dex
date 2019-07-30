@@ -12,17 +12,6 @@ import lib;
 import errors;
 import extend;
 
-// alias Obj = Variant;
-// alias Obj = VariantN!(
-// 	double,
-// 	string,
-// 	bool,
-// 	This[],
-// 	This function(Vm,This[]),
-// 	// This delegate(Vm,This[]),
-// 	FuncLocation
-// );
-
 struct Func {
 	enum Type {
 		LOCATION,
@@ -57,7 +46,6 @@ struct Obj {
 		LIST,
 		FUNCTION,
 		STRING,
-		// OTHER,
 		VOID,
 	}
 	Type type = Type.VOID;
@@ -67,7 +55,6 @@ struct Obj {
 		Obj[] _list;
 		Func _func;
 		double _number;
-		// Variant _other;
 	}
 	Value value;
 	Obj clear() {

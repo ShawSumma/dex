@@ -1,0 +1,22 @@
+(define zip
+    (lambda args
+        (apply map
+            (list list)
+            args)))
+
+(define pairs
+    (lambda (arg)
+        (zip (range (length arg))
+            arg)))
+
+(define Y
+    (lambda (f)
+        ((lambda (g) (g g))
+        (lambda (n)
+            (f (lambda a (apply (n n) a)))))))
+
+(define fac
+    (Y (lambda (n)
+        (lambda (x)
+            (if (< x 2) 1
+                (* x (n (- x 1))))))))

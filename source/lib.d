@@ -1,5 +1,6 @@
 import std.stdio;
 import std.algorithm;
+import std.algorithm.mutation;
 import std.string;
 import core.stdc.stdlib;
 import std.conv;
@@ -7,6 +8,7 @@ import std.range;
 import app;
 import extend;
 import errors;
+import namecheck;
 
 Obj[] toList(P...) (P rest) {
     Obj[] ret = [];
@@ -32,7 +34,6 @@ Obj get(Vm vm, string name) {
             return layer[name];
         }
     }
-    writeln;
     writeln("error: name ", name," not found");
     begin:
     write("(error): ");
@@ -47,9 +48,44 @@ Obj get(Vm vm, string name) {
         writeln("  change: replace name lookup with value");
         writeln("  name: change name to lookup");
         writeln("  repl: enter an error repl");
+        writeln("  auto: suggest and change a name");
         writeln("  kill: exit wish custom status");
         writeln("  exit: exit with status 1");
         goto begin;
+    }
+    if (split[0] == "auto" || split[0] == "auto!") {
+        string[] options = xfn.keys;
+        foreach(layer; vm.locals) {
+            options ~= layer.keys;
+        }
+        check:
+        string possible = nameCheck(name, options);
+        if (possible != "") {
+            if (split[0] == "auto") {
+                write("try ", possible, ": ");
+            }
+        }
+        else {
+            writeln("auto cant find a name");
+            goto begin;
+        }
+        if (split[0] == "auto") {
+            string ch = readln[0..$-1];
+            if (ch == "yes" || ch == "y") {
+                name = possible;
+            }
+            else if (ch == "no" || ch == "n") {
+                options[$-find(options, possible).length] = "";
+                goto check;
+            }
+            else {
+                goto begin;
+            }
+        }
+        else {
+            name = possible;
+        }
+        goto redo;
     }
     if (split[0] == "name" || split[0] == "lookup") {
         if (split.length == 1) {
