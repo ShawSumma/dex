@@ -155,6 +155,9 @@ class Program {
 struct Vm {
 	Obj[string] lastlocals;
 	Obj[string][] locals;
+	Obj[][] stack = [];
+	ulong*[] ips = [];
+	Program[] programs = [];
 	void define(string name, Obj value) {
 		lastlocals[name] = value;
 	}
@@ -162,20 +165,33 @@ struct Vm {
 		lastlocals[name] = Obj(name);
 	}
 	Obj run(Program program, ulong ip=0, Obj[string] mlocals=null) {
-		locals ~= mlocals;
-		Obj[] stack = [];
+		return run!true(program, ip, mlocals);
+	}
+	Obj run(bool init)(Program program, ulong ipv=0, Obj[string] mlocals=null, void delegate() retcall=null, void delegate() initcall=null) {
+		ulong *ip = new ulong(ipv);
+		static if (init) {
+			locals ~= mlocals;
+			Obj[] nex = [];
+			stack ~= nex;
+			ips ~= ip;
+			programs ~= program;
+		}
+		if (initcall != null) {
+			initcall();
+		}
 		while (true) {
-			redo:
-			Opcode op = program.code[ip];
-			switch (op.type) {
+			Opcode op = program.code[*ip];
+			final switch (op.type) {
 				case OpcodeType.CALL: {
-					Obj[] args = stack[$-op.value..$];
-					stack.popBackN(op.value);
-					stack[$-1] = call(this, stack[$-1], args);
+					Obj[] args = stack[$-1][$-op.value..$];
+					stack[$-1].popBackN(op.value);
+					Obj last = stack[$-1][$-1];
+					stack[$-1].popBack;
+					stack[$-1] ~= call(this, last, args);
 					break;
 				}
 				case OpcodeType.LOAD: {
-					stack ~= locals[$-1][program.strings[op.value]];
+					stack[$-1] ~= locals[$-1][program.strings[op.value]];
 					break;
 				}
 				case OpcodeType.NAME: {
@@ -185,33 +201,42 @@ struct Vm {
 					break;
 				}
 				case OpcodeType.CONST: {
-					stack ~= program.consts[op.value];
+					stack[$-1] ~= program.consts[op.value];
 					break;
 				}
 				case OpcodeType.STORE: {
-					locals[$-1][program.strings[op.value]] = stack[$-1];
+					locals[$-1][program.strings[op.value]] = stack[$-1][$-1];
 					break;
 				}
 				case OpcodeType.POP: {
-					stack.popBack;
+					stack[$-1].popBack;
 					break;
 				}
 				case OpcodeType.JUMPF: {
-					Obj last = stack[$-1];
-					stack.popBack;
+					Obj last = stack[$-1][$-1];
+					stack[$-1].popBack;
 					if (last.peek!void || (last.peek!bool == true && last.get!bool == false)) {
-						ip = op.value;
+						*ip = op.value;
 					}
 					break;
 				} 
 				case OpcodeType.JUMP: {
-					ip = op.value;
+					*ip = op.value;
 					break;
 				} 
 				case OpcodeType.EXIT: {
-					lastlocals = locals[$-1];
-					locals.popBack;
-					return stack[$-1];
+					if (retcall != null) {
+						retcall();
+					}
+					Obj[] last = stack[$-1];
+					static if (init) {
+						lastlocals = locals[$-1];
+						locals.popBack;
+						stack.popBack;
+						ips.popBack;
+						programs.popBack;
+					}
+					return last[$-1];
 				}
 				case OpcodeType.FUNC: {
 					ulong func = program.funclocs[op.value];
@@ -221,12 +246,12 @@ struct Vm {
 					}
 					FuncLocation loc = new FuncLocation;
 					loc.cap = cap;
-					loc.place = ip+1;
+					loc.place = *ip+1;
 					loc.owner = program;
 					loc.argnames = program.funcargnames[op.value];
 					loc.isglob = program.isglobs[op.value];
-					stack ~= Obj(loc);
-					ip = func;
+					stack[$-1] ~= Obj(loc);
+					*ip = func;
 					break;
 				}
 				case OpcodeType.SPACE: {
@@ -234,8 +259,17 @@ struct Vm {
 					break;
 				}
 				case OpcodeType.RET: {
-					locals.popBack;
-					return stack[$-1];
+					if (retcall != null) {
+						retcall();
+					}
+					Obj[] last = stack[$-1];
+					static if (init) {
+						stack.popBack;
+						locals.popBack;
+						ips.popBack;
+						programs.popBack;
+					}
+					return last[$-1];
 				}
 				case OpcodeType.INIT: {
 					foreach (p; lastlocals.byKeyValue) {
@@ -243,12 +277,29 @@ struct Vm {
 					}
 					break;
 				}
-				default: {
-					writeln("unknown instruction ", op.type);
-					assert(0);
-				}
 			}
-			ip ++;
+			(*ip) ++;
 		}
+	}
+	Obj delegate(Vm vm, Obj[] args) state() {
+		Obj[string] ll = lastlocals.dup;
+		Obj[string][] l = locals.dup;
+		Obj[][] s = stack.dup;
+		ulong*[] i = [];
+		foreach (v; ips) {
+			i ~= new ulong(*v);
+		}
+		Program[] p = programs.dup;
+		Obj ret(Vm vm, Obj[] args) {
+			Vm newvm = Vm();
+			s[$-1] ~= Obj(&ret);
+			newvm.locals = l;
+			newvm.ips = i;
+			newvm.programs = p;
+			newvm.stack = s;
+			return newvm.run!false(p[$-1], *i[$-1], l[$-1],);
+		}
+		(*i[$-1]) ++;
+		return &ret;
 	}
 }

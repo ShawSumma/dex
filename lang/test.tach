@@ -1,1 +1,15 @@
-(writeln (-))
+(define counter
+    (lambda (fn)
+        (define x 0)
+        (define begin (save))
+        (if (< x 1) true
+            (fn x))
+        (define x (+ x 1))
+        begin))
+
+(define v
+    (counter
+        (lambda (n)
+            (println '(call number ) n))))
+
+(v) (v) (v) (v) (v) (v)

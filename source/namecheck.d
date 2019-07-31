@@ -7,8 +7,9 @@ import std.range;
 import std.conv;
 import std.math;
 
+// i cant really comment this, i have no clue how it works
+
 string nameCheck(string text, string[] match) {
-    // double winning = 0.4 * text.length;
     double winning = double.infinity;
     string winner = "";
     foreach (i; 0..match.length) {

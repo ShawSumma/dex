@@ -6,7 +6,9 @@ import obj;
 import vm;
 import node;
 
+// parser does not use tokens
 Node parseNode(string str, ulong *index) {
+	// get char and move forward
 	char get() {
 		if (str.length == *index) {
 			return '\0';
@@ -15,28 +17,29 @@ Node parseNode(string str, ulong *index) {
 		*index += 1;
 		return ret;
 	}
+	// get char and dont move forward
 	char peek() {
 		if (str.length == *index) {
 			return '\0';
 		}
 		return str[*index];
 	}
+	// move backward
 	void undo() {
 		*index -= 1;
 	}
+	// remove spaces
 	void strip() {
-		while (peek == '\t' || peek == '\r' || peek == ' ' || peek == '\n') {
+		while (peek.isWhite) {
 			get;
 		}
 	}
-	if (peek.isWhite) {
-		get;
-		return parseNode(str, index);
-	}
-	if (peek == '(') {
+	strip;
+	// calls start with ( or [ and end with ] or )
+	if (peek == '(' || peek == '[') {
 		Node[] ret = [];
 		get;
-		while (peek != ')') {
+		while (peek != ')' || peek == ']') {
 			ret ~= parseNode(str, index);
 			strip;
 		}
@@ -59,8 +62,8 @@ Node parseNode(string str, ulong *index) {
 		}
 		return new Node(NodeType.CALL, NodeValue(ret));
 	}
+	// strings are 
 	if (peek == '"' || peek == '\'') {
-		get;
 		get;
 		ulong depth = 1;
 		char[] got = [];
@@ -79,7 +82,7 @@ Node parseNode(string str, ulong *index) {
 		get;
 		Node nv = new Node();
 		nv.type = NodeType.STRING;
-		nv.value.str = cast(string) got;
+		nv.value.str = cast(string) got[1..$];
 		return nv;
 	}
 	if (peek.isDigit) {

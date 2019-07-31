@@ -1,7 +1,12 @@
 import std.conv;
 import std.range;
+import std.stdio;
 import vm;
 
+// a function can be one of three things
+// a location in bytecode know as a FuncLocation
+// a delegate
+// a function
 struct Func {
 	enum Type {
 		LOCATION,
@@ -29,6 +34,7 @@ struct Func {
 	}
 }
 
+// object types represented by the enum Type and Type type
 struct Obj {
 	enum Type {
 		BOOL,
@@ -51,6 +57,7 @@ struct Obj {
 		type = Type.VOID;
 		return this;
 	}
+	// these construct an object
 	this(bool v) {
 		type = Type.BOOL;
 		value._bool = v; 
@@ -83,6 +90,7 @@ struct Obj {
 		type = Type.FUNCTION;
 		value._func = Func(v); 
 	}
+	// peek returns true if the type is what the template is given
 	bool peek(T)() {
 		static if (is(T == bool)) {
 			return type == Type.BOOL;
@@ -102,11 +110,10 @@ struct Obj {
 		static if (is(T == void)) {
 			return type == Type.VOID;
 		}
-		// static if (is(T == Variant)) {
-		// 	return type == Type.OTHER;
-		// }
 		assert(0);
 	}
+	// get is used with peek mostly
+	// it reads the value from Value value
 	T get(T)() {
 		static if (is(T == bool)) {
 			return value._bool;
@@ -123,9 +130,6 @@ struct Obj {
 		static if (is(T == Func)) {
 			return value._func;
 		}
-		// static if (is(T == Variant)) {
-		// 	return value._other;
-		// }
 		static if (is(T == FuncLocation)) {
 			return value._func.value.loc;
 		}
@@ -136,6 +140,7 @@ struct Obj {
 			return value._func.value.fun;
 		}
 	}
+	// does not do recursivly to prevent stack overflow
 	string toString() {
 		if (peek!double) {
 			return to!string(get!double);
@@ -149,16 +154,21 @@ struct Obj {
 		if (peek!Func) {
 			return "(function)";
 		}
+		if (peek!bool) {
+			return to!string(get!bool);
+		}
 		return "(object "~ to!string(type) ~ ")";
 	}
 }
 
+// used only from Func
 class FuncLocation {
 	ulong place;
 	Obj*[string] cap;
 	string[] argnames;
 	Program owner;
 	bool isglob;
+	Obj[string] olocals = null;
 	Obj opCall(Vm vm, Obj[] argind) {
 		Obj[string] args;
 		if (isglob) {
@@ -172,10 +182,15 @@ class FuncLocation {
 		foreach (c; cap.byKeyValue) {
 			args[c.key] = *c.value;
 		}
-		return vm.run(owner, place, args);
+		if (olocals == null) {
+			olocals = args;
+		}
+		return vm.run!true(owner, place, args);
 	}
 }
 
+// calls an object with args
+// handes all three function types
 Obj call(Vm vm, Obj fn, Obj[] args) {
 	Func func = fn.get!Func;
 	if (func.type == Func.Type.LOCATION) {

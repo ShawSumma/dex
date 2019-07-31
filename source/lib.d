@@ -14,31 +14,24 @@ import vm;
 import node;
 import parse;
 
-Obj[] toList(P...) (P rest) {
-    Obj[] ret = [];
-    foreach (v; rest) {
-        static if (is(v == Obj)) {
-            ret ~= v;
-        }
-        else {
-            ret ~= Obj(v);
-        }
-    }
-    return ret;
-}
-
+// get a name, loads all names each time
+// likely able to be much more optimized
 Obj get(Vm vm, string name) {
+    // get standard fuctions
     Obj [string] xfn = xfuncs;
     redo:
     if (name in xfn) {
         return xfn[name];
     }
+    // if the name does not exist look down the stack incase repl mode
     foreach_reverse (layer; vm.locals) {
         if (name in layer) {
             return layer[name];
         }
     }
+    // if it does not exist there is error
     writeln("error: name ", name," not found");
+    // do not repeat the one time error message
     begin:
     write("(error): ");
     string line = readln[0..$-1];
@@ -50,13 +43,14 @@ Obj get(Vm vm, string name) {
     if (split[0] == "help" || split[0] == "?" || split[0] == "options") {
         writeln("  help: display help");
         writeln("  change: replace name lookup with value");
-        writeln("  name: change name to lookup");
         writeln("  repl: enter an error repl");
         writeln("  auto: suggest and change a name");
         writeln("  kill: exit wish custom status");
         writeln("  exit: exit with status 1");
         goto begin;
     }
+    // when auto! is chosen it automatically finds a name
+    // this is not the smartest algorythm
     if (split[0] == "auto" || split[0] == "auto!") {
         string[] options = xfn.keys;
         foreach(layer; vm.locals) {
@@ -91,18 +85,8 @@ Obj get(Vm vm, string name) {
         }
         goto redo;
     }
-    if (split[0] == "name" || split[0] == "lookup") {
-        if (split.length == 1) {
-            write("(name): ");
-            line = readln[0..$-1];
-        }
-        else {
-            line = line[split[0].length+1..$];
-        }
-        line = line.strip;
-        name = line;
-        goto redo;
-    }
+    // evalueates expression
+    // if the expression is a name it does a new lookup
     if (split[0] == "replace" || split[0] == "expr" || split[0] == "change") {
         if (split.length == 1) {
             write("(expr): ");
@@ -117,6 +101,7 @@ Obj get(Vm vm, string name) {
         program.walk(n);
         return vm.run(program);
     }
+    // exit with value
     if (split[0] == "kill") {
         if (split.length == 1) {
             write("(status): ");
@@ -131,6 +116,7 @@ Obj get(Vm vm, string name) {
         program.walk(n);
         exit(to!int(vm.run(program).get!double));
     }
+    // enter an error repl
     if (line == "repl"){
         errorRepl(vm);
         goto begin;

@@ -11,6 +11,8 @@ import vm;
 import node;
 import parse;
 
+// a repl for use from errors
+// exit does not actually call anything
 void errorRepl(Vm vm) {
     Obj[string] ll = vm.lastlocals;
     vm.lastlocals = vm.locals[$-1];
@@ -18,9 +20,11 @@ void errorRepl(Vm vm) {
     while (true) {
         write(">>> ");
         string inp = readln[0..$-1];
+        // if the input is exit stop the repl and cleanup
         if (inp == "(exit)") {
             break;
         }
+        // read until all parens are closed
         while (count(inp, '(') - count(inp, ')') != 0) {
             write("... ");
             foreach(i; 0..count(inp, '(') - count(inp, ')')) {
@@ -32,6 +36,7 @@ void errorRepl(Vm vm) {
         Node n = parses(inp);
         program.walk(n);
         Obj got = vm.run(program, 0);
+        // if the obj has a value show it
         if (!got.peek!void) {
             writeln(got);
         }
@@ -40,37 +45,50 @@ void errorRepl(Vm vm) {
     vm.lastlocals = ll;
 }
 
-
+// argument type checker node
 struct Argexp {
     alias ArgType = char;
     enum Type {
         TYPE,
         CALL
     }
+    Type type;
     union Value {
         Argexp[] calls;
         ArgType type;
     }
-    Type type;
     Value value;
+    // return true if there is no error
+    // if there is an error rewind the ind
     bool okay(Obj[] args, ulong* ind) {
         if (type == Type.TYPE) {
+            // if there is no arguments left it is an error
             if (*ind >= args.length) {
                 return false;
             }
+            // for numbers n or i works
             switch (value.type) {
+                case 'i': goto case;
                 case 'n': return args[*ind].peek!double;
                 case 'b': return args[*ind].peek!bool;
                 case 's': return args[*ind].peek!string;
                 case 'l': return args[*ind].peek!(Obj[]);
-                case 'a': return true;
                 case 'f': return args[*ind].peek!Func;
+                case 'a': return true;
                 default: assert(0);
             }
         }
         else {
             Argexp[] exps = value.calls[1..$];
             ArgType fn = value.calls[0].value.type;
+            // commands are
+            // command '|' means any of
+            // command '>' means in order of
+            // command '*' means any number of
+            // command '+' means nonzero number of
+            // aliases are
+            // alias {} means in order of
+            // alias [] means any of
             switch (fn) {
                 case '|': {
                     foreach (e; exps) {
@@ -138,8 +156,10 @@ struct Argexp {
     }
 }
 
+// parse string from index to end into an argexp command
 Argexp parseStr(string str, ulong* index) {
     Argexp ret;
+    // command is the first letter
     if (str[*index] == '(') {
         (*index) ++;
         Argexp[] arr;
@@ -150,6 +170,7 @@ Argexp parseStr(string str, ulong* index) {
         ret.type = Argexp.Type.CALL;
         ret.value.calls = arr;
     }
+    // command is |
     else if (str[*index] == '[') {
         (*index) ++;
         Argexp or;
@@ -163,6 +184,7 @@ Argexp parseStr(string str, ulong* index) {
         ret.type = Argexp.Type.CALL;
         ret.value.calls = arr;
     }
+    // command  is >>
     else if (str[*index] == '{') {
         (*index) ++;
         Argexp fwd;
@@ -176,6 +198,7 @@ Argexp parseStr(string str, ulong* index) {
         ret.type = Argexp.Type.CALL;
         ret.value.calls = arr;
     }
+    // value is a type to use
     else {
         ret.type = Argexp.Type.TYPE;
         ret.value.type = str[*index];
@@ -184,17 +207,23 @@ Argexp parseStr(string str, ulong* index) {
     return ret;
 }
 
+// parse entire string
 Argexp parseStr(string str) {
+    // val must be a pointer
     ulong val = 0;
     return parseStr(str, &val);
 }
 
+// check a function call and handle errors
+// the template string S is the argument types
 Obj funcCheck(string S)(Vm vm, Obj func, Obj[] args) {
     Argexp exp = parseStr(S);
     ulong ind = 0;
     redo:
     bool isokay = exp.okay(args, &ind) && ind == args.length;
     if (!isokay) {
+        // functions dont carry a name as they come from lambdas
+        // does not show function name
         writeln("error: bad args to a func");
         begin:
         write("(error): ");
@@ -292,10 +321,13 @@ Obj funcCheck(string S)(Vm vm, Obj func, Obj[] args) {
     return call(vm, func, args);
 }
 
+// convert function to delegate that is checked
 Obj delegate(Vm vm, Obj[] args) funcConv(string S)(Obj function(Vm vm, Obj[] args) func) {
-    return (Vm vm, Obj[] args) => funcCheck!S(vm, Obj(func), args);
+    return (Vm vm, Obj[] args) => funcCheck!S(vm, Obj(Func(func)), args);
 }
 
-Obj funcObj(string S, T)(T f) {
-    return Obj(funcConv!S(f));
+// make an object out of a function
+// template string S is the argument check
+Obj funcObj(string S)(Obj function(Vm vm, Obj[] args) f) {
+    return Obj(Func(funcConv!S(f)));
 }

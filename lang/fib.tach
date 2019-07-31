@@ -5,4 +5,4 @@
             (+
                 (fib (- n 2))
                 (fib (- n 1))))))
-(println (fib 30))
+(println (fib 20))
