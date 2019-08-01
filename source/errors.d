@@ -67,7 +67,7 @@ struct Argexp {
                 return false;
             }
             // for numbers n or i works
-            switch (value.type) {
+            final switch (value.type) {
                 case 'i': goto case;
                 case 'n': return args[*ind].peek!double;
                 case 'b': return args[*ind].peek!bool;
@@ -75,7 +75,6 @@ struct Argexp {
                 case 'l': return args[*ind].peek!(Obj[]);
                 case 'f': return args[*ind].peek!Func;
                 case 'a': return true;
-                default: assert(0);
             }
         }
         else {
@@ -89,7 +88,7 @@ struct Argexp {
             // aliases are
             // alias {} means in order of
             // alias [] means any of
-            switch (fn) {
+            final switch (fn) {
                 case '|': {
                     foreach (e; exps) {
                         if (e.okay(args, ind)) {
@@ -147,11 +146,7 @@ struct Argexp {
                         count ++;
                     }
                 }
-                default: {
-                    assert(0);
-                }
             }
-            assert(0);
         }
     }
 }
@@ -252,9 +247,9 @@ Obj funcCheck(string S)(Vm vm, Obj func, Obj[] args) {
             else {
                 line = line[split[0].length+1..$];
             }
-            ulong index = 0;
+            Info info = new Info;
             Program program = new Program;
-            Node n = parse1(line, &index);
+            Node n = parse1(line, info);
             program.walk(n);
             return vm.run(program);
         }
@@ -271,9 +266,9 @@ Obj funcCheck(string S)(Vm vm, Obj func, Obj[] args) {
                 line = line[split[0].length+1..$];
             }
             args = [];
-            ulong index = 0;
-            while (index < line.length) {
-                Node n = parse1(line, &index);
+            Info info = new Info;
+            while (info.index < line.length) {
+                Node n = parse1(line, info);
                 Program program = new Program;
                 program.walk(n);
                 args ~= vm.run(program);
@@ -288,8 +283,8 @@ Obj funcCheck(string S)(Vm vm, Obj func, Obj[] args) {
             else {
                 line = line[split[0].length+1..$];
             }
-            ulong index = 0;
-            Node n = parse1(line, &index);
+            Info info = new Info;
+            Node n = parse1(line, info);
             Program program = new Program;
             program.walk(n);
             return vm.run(program);
@@ -306,9 +301,9 @@ Obj funcCheck(string S)(Vm vm, Obj func, Obj[] args) {
             else {
                 line = line[split[0].length+1..$];
             }
-            ulong index = 0;
+            Info info = new Info;
             Program program = new Program;
-            Node n = parse1(line, &index);
+            Node n = parse1(line, info);
             program.walk(n);
             exit(to!int(vm.run(program).get!double));
         }
@@ -322,12 +317,13 @@ Obj funcCheck(string S)(Vm vm, Obj func, Obj[] args) {
 }
 
 // convert function to delegate that is checked
-Obj delegate(Vm vm, Obj[] args) funcConv(string S)(Obj function(Vm vm, Obj[] args) func) {
-    return (Vm vm, Obj[] args) => funcCheck!S(vm, Obj(Func(func)), args);
+Obj funcConv(string S, string N)(Obj function(Vm vm, Obj[] args) func) {
+    return Obj((Vm vm, Obj[] args, Obj[] cap) => funcCheck!S(vm, cap[0], args), [Obj(func, N)], N);
+    // return (Vm vm, Obj[] args) => funcCheck!S(vm, Obj(Func(func)), args);
 }
 
 // make an object out of a function
 // template string S is the argument check
-Obj funcObj(string S)(Obj function(Vm vm, Obj[] args) f) {
-    return Obj(Func(funcConv!S(f)));
+Obj funcObj(string S, string N)(Obj function(Vm vm, Obj[] args) f) {
+    return funcConv!(S, N)(f);
 }

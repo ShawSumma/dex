@@ -95,9 +95,9 @@ Obj get(Vm vm, string name) {
         else {
             line = line[split[0].length+1..$];
         }
-        ulong index = 0;
+        Info info = new Info;
         Program program = new Program;
-        Node n = parse1(line, &index);
+        Node n = parse1(line, info);
         program.walk(n);
         return vm.run(program);
     }
@@ -112,7 +112,8 @@ Obj get(Vm vm, string name) {
         }
         ulong index = 0;
         Program program = new Program;
-        Node n = parse1(split[0], &index);
+        Info info = new Info;
+        Node n = parse1(line, info);
         program.walk(n);
         exit(to!int(vm.run(program).get!double));
     }

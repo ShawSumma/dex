@@ -1,0 +1,8 @@
+(define fib
+    (lambda (n)
+        (if (unsafe:< n 2)
+            n
+            (unsafe:+
+                (fib (unsafe:- n 2))
+                (fib (unsafe:- n 1))))))
+(println (fib 30))

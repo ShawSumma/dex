@@ -1,7 +1,9 @@
 import std.conv;
 import std.range;
 import std.stdio;
+import std.algorithm;
 import vm;
+import swrite;
 
 // a function can be one of three things
 // a location in bytecode know as a FuncLocation
@@ -15,34 +17,44 @@ struct Func {
 	}
 	union Value {
 		FuncLocation loc;
-		Obj delegate(Vm, Obj[]) del;
+		FuncDelegate del;
 		Obj function(Vm, Obj[]) fun;
 	}
 	Type type;
 	Value value;
+	string name;
 	this(FuncLocation loc) {
 		type = Type.LOCATION;
 		value.loc = loc;
+		name = "";
 	}
-	this(Obj delegate(Vm, Obj[]) del) {
+	this(Obj function(Vm, Obj[], Obj[]) del, Obj[] o, string n) {
 		type = Type.DELEGATE;
-		value.del = del;
+		value.del = FuncDelegate(del, o);
+		name = n;
 	}
-	this(Obj function(Vm, Obj[]) fun) {
+	this(Obj function(Vm, Obj[]) fun, string n) {
 		type = Type.FUNCTION;
 		value.fun = fun;
+		name = n;
 	}
 }
 
 // object types represented by the enum Type and Type type
 struct Obj {
 	enum Type {
+		VOID = 1,
 		BOOL,
 		NUMBER,
 		LIST,
 		FUNCTION,
 		STRING,
-		VOID,
+		// other
+		STR_MAP,
+		STR_MAP_LIST,
+		LIST_LIST,
+		ULONG_PTR_LIST,
+		PROGRAM_LIST,
 	}
 	Type type = Type.VOID;
 	union Value {
@@ -51,6 +63,12 @@ struct Obj {
 		Obj[] _list;
 		Func _func;
 		double _number;
+		// others
+		Obj[string][] _str_map_list;
+		Obj[string] _str_map;
+		Obj[][] _list_list;
+		ulong*[] _ulong_ptr_list;
+		Program[] _program_list;
 	}
 	Value value;
 	Obj clear() {
@@ -58,6 +76,26 @@ struct Obj {
 		return this;
 	}
 	// these construct an object
+	this(Obj[string][] v) {
+		type = Type.STR_MAP_LIST;
+		value._str_map_list = v; 
+	}
+	this(Obj[string] v) {
+		type = Type.STR_MAP;
+		value._str_map = v; 
+	}
+	this(Obj[][] v) {
+		type = Type.LIST_LIST;
+		value._list_list = v; 
+	}
+	this(ulong *[] v) {
+		type = Type.ULONG_PTR_LIST;
+		value._ulong_ptr_list = v; 
+	}
+	this(Program[] v) {
+		type = Type.PROGRAM_LIST;
+		value._program_list = v; 
+	}
 	this(bool v) {
 		type = Type.BOOL;
 		value._bool = v; 
@@ -80,15 +118,15 @@ struct Obj {
 	}
 	this(FuncLocation v) {
 		type = Type.FUNCTION;
-		value._func = v; 
-	}
-	this(Obj delegate(Vm, Obj[]) v) {
-		type = Type.FUNCTION;
 		value._func = Func(v); 
 	}
-	this(Obj function(Vm, Obj[]) v) {
+	this(Obj function(Vm, Obj[], Obj[]) v, Obj[] c, string n) {
 		type = Type.FUNCTION;
-		value._func = Func(v); 
+		value._func = Func(v, c, n); 
+	}
+	this(Obj function(Vm, Obj[]) v, string n) {
+		type = Type.FUNCTION;
+		value._func = Func(v, n); 
 	}
 	// peek returns true if the type is what the template is given
 	bool peek(T)() {
@@ -110,7 +148,6 @@ struct Obj {
 		static if (is(T == void)) {
 			return type == Type.VOID;
 		}
-		assert(0);
 	}
 	// get is used with peek mostly
 	// it reads the value from Value value
@@ -133,12 +170,13 @@ struct Obj {
 		static if (is(T == FuncLocation)) {
 			return value._func.value.loc;
 		}
-		static if (is(T == Obj delegate(Vm, Obj[]))) {
+		static if (is(T == FuncDelegate)) {
 			return value._func.value.del;
 		}
 		static if (is(T == Obj function(Vm, Obj[]))) {
 			return value._func.value.fun;
 		}
+		assert(0);
 	}
 	// does not do recursivly to prevent stack overflow
 	string toString() {
@@ -159,16 +197,104 @@ struct Obj {
 		}
 		return "(object "~ to!string(type) ~ ")";
 	}
+	void write(Serial state) {
+		void o(T)(T v) {
+			serial(state, v);
+		}
+		if (!state.add(this)) {
+			o(cast(ulong) 0);
+			o(state.objs[this]);
+			return;
+		}
+		state.refs ~= cast(ubyte) type;
+		final switch (type) {
+			case Type.BOOL: {
+				o(value._bool);
+				break;
+			}
+			case Type.NUMBER: {
+				o(value._number);
+				break;
+			}
+			case Type.LIST: {
+				o(value._list);
+				break;
+			}
+			case Type.FUNCTION: {
+				state.refs ~= cast(ubyte) value._func.type;
+				final switch (value._func.type) {
+					case Func.Type.LOCATION: {
+						FuncLocation loc = value._func.value.loc;
+						o(loc.place);
+						o(loc.isglob);
+						o(loc.argnames);
+						o(loc.cap);
+						o(loc.owner);
+						break;
+					}
+					case Func.Type.FUNCTION: {
+						o(value._func.name);
+						break;
+					}
+					case Func.Type.DELEGATE: {
+						FuncDelegate del = value._func.value.del;
+						o(value._func.name);
+						o(del.farg);
+						break;
+					}
+				}
+				break;
+			}
+			case Type.STRING: {
+				o(value._string);
+				break;
+			}
+			case Type.VOID: {
+				break;
+			}
+			case Type.STR_MAP: {
+				o(value._str_map);
+				break;
+			}
+			case Type.STR_MAP_LIST: {
+				o(value._str_map_list);
+				break;
+			}
+			case Type.LIST_LIST: {
+				o(value._list_list);
+				break;
+			}
+			case Type.ULONG_PTR_LIST: {
+				o(value._ulong_ptr_list);
+				break;
+			}
+			case Type.PROGRAM_LIST: {
+				o(value._program_list);
+				break;
+			}
+		}
+	}
+}
+
+struct FuncDelegate {
+	Obj function(Vm, Obj[], Obj[]) del;
+	Obj[] farg;
+	this(Obj function(Vm, Obj[], Obj[]) f, Obj[] o) {
+		del = f;
+		farg = o;
+	}
+	Obj opCall(Vm vm, Obj[] args) {
+		return del(vm, args, farg);
+	}
 }
 
 // used only from Func
-class FuncLocation {
+struct FuncLocation {
+	bool isglob;
 	ulong place;
-	Obj*[string] cap;
 	string[] argnames;
 	Program owner;
-	bool isglob;
-	Obj[string] olocals = null;
+	Obj*[string] cap;
 	Obj opCall(Vm vm, Obj[] argind) {
 		Obj[string] args;
 		if (isglob) {
@@ -181,9 +307,6 @@ class FuncLocation {
 		}
 		foreach (c; cap.byKeyValue) {
 			args[c.key] = *c.value;
-		}
-		if (olocals == null) {
-			olocals = args;
 		}
 		return vm.run!true(owner, place, args);
 	}
@@ -198,7 +321,7 @@ Obj call(Vm vm, Obj fn, Obj[] args) {
 		return callable(vm, args);
 	}
 	else if (func.type == Func.Type.DELEGATE) {
-		Obj delegate(Vm vm, Obj[]) callable = func.value.del;
+		FuncDelegate callable = func.value.del;
 		return callable(vm, args);
 	}
 	else {

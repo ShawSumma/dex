@@ -5,4 +5,5 @@
             (+
                 (fib (- n 2))
                 (fib (- n 1))))))
-(println (fib 30))
+
+(save-to "(out/) (export fib))

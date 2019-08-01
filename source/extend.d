@@ -10,6 +10,8 @@ import app;
 import errors;
 import vm;
 import obj;
+import swrite;
+import sread;
 
 // language default loaded library
 
@@ -267,16 +269,52 @@ Obj libvars(Vm vm, Obj[] args) {
 // loaded as save
 // save the satate similar to a goto
 Obj libsave(Vm vm, Obj[] args) {
-    return Obj(vm.state);
+    return vm.state;
+}
+
+Obj libexport(Vm vm, Obj[] args) {
+    Serial state = new Serial;
+    // serial(state, vm);
+    args[0].write(state);
+    return Obj(cast(string) state.refs);
+}
+
+Obj libimport(Vm vm, Obj[] args) {
+    ubyte[] codes = cast(ubyte[]) args[0].get!string;
+    InputSerial ser = InputSerial(codes);
+    return ser.read;
 }
 
 string newFuncObj(string argt, string name, string as)() {
-    string ret = "ret[\"" ~ as  ~ "\"] = " ~ "funcObj!\"" ~ argt ~ "\"(&lib" ~ name ~ ");";
+    string ret = "ret[\"" ~ as  ~ "\"] = " ~ "funcObj!(\"" ~ argt ~ "\", \"" ~ as ~ "\")(&lib" ~ name ~ ");";
+    ret ~= "ret[\"unsafe:" ~ as  ~ "\"] = " ~ "Obj(&lib" ~ name ~ ", \"unsafe:" ~ as ~ "\");";
     return ret;
 }
 
 string newFuncObj(string argt, string name)() {
     return newFuncObj!(argt, name, name);
+}
+
+Obj saveStateVm(Vm vm, Obj[] args, Obj[] cap) {
+    Vm newvm = Vm();
+    cap[5].value._list_list[$-1] ~= cap[0];
+    newvm.lastlocals = cap[1].value._str_map;
+    newvm.locals = cap[2].value._str_map_list;
+    newvm.ips = cap[3].value._ulong_ptr_list;
+    newvm.programs = cap[4].value._program_list;
+    newvm.stack = cap[5].value._list_list;
+    return newvm.run!false(newvm.programs[$-1], *newvm.ips[$-1], newvm.locals[$-1]);
+};
+
+Obj readFetch(string str) {
+    Obj[string] funcs = xfuncs;
+    return funcs[str];
+}
+
+Obj readFetchDel(string str, Obj[] cap) {
+    Obj[string] funcs = xfuncs;
+    funcs["vm.state"] = Obj(Func(&saveStateVm, cap, "vm.state"));
+    return funcs[str];
 }
 
 // load every function
@@ -306,5 +344,7 @@ Obj[string] xfuncs() {
     mixin(newFuncObj!("{(+n)}", "lte", "<="));
     mixin(newFuncObj!("{(+n)}", "gte", ">="));
     mixin(newFuncObj!("{}", "save", "save"));
+    mixin(newFuncObj!("{a}", "export"));
+    mixin(newFuncObj!("{a}", "import"));
     return ret;
 }

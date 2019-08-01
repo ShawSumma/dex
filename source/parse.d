@@ -1,32 +1,48 @@
 import std.ascii;
 import std.stdio;
 import std.conv;
+import core.stdc.stdlib;
 import node;
 import obj;
 import vm;
 import node;
 
+class Info {
+	ulong lineno = 1;
+	ulong colno = 1;
+	ulong index = 0;
+	void got(char c) {
+		if (c == '\n') {
+			lineno ++;
+			colno = 1;
+		}
+		else if (c == '\r') {
+			colno = 1;
+		}
+		else {
+			colno ++;
+		}
+		index ++;
+	} 
+}
+
 // parser does not use tokens
-Node parseNode(string str, ulong *index) {
+Node parseNode(string str, Info info) {
 	// get char and move forward
 	char get() {
-		if (str.length == *index) {
+		if (str.length == info.index) {
 			return '\0';
 		}
-		char ret = str[*index];
-		*index += 1;
+		char ret = str[info.index];
+		info.got(ret);
 		return ret;
 	}
 	// get char and dont move forward
 	char peek() {
-		if (str.length == *index) {
+		if (str.length == info.index) {
 			return '\0';
 		}
-		return str[*index];
-	}
-	// move backward
-	void undo() {
-		*index -= 1;
+		return str[info.index];
 	}
 	// remove spaces
 	void strip() {
@@ -35,18 +51,35 @@ Node parseNode(string str, ulong *index) {
 		}
 	}
 	strip;
+	if (peek == ')') {
+		writeln("error: syntax no opening item");
+		exit(1);
+	}
 	// calls start with ( or [ and end with ] or )
 	if (peek == '(' || peek == '[') {
 		Node[] ret = [];
 		get;
-		while (peek != ')' || peek == ']') {
-			ret ~= parseNode(str, index);
+		while (peek != ')' && peek != ']') {
+			if (peek == '\0') {
+				writeln("error: syntax no closing item");
+				exit(1);
+			}
+			ret ~= parseNode(str, info);
 			strip;
 		}
 		get;
 		if (ret.length != 0 && ret[0].type == NodeType.LOAD) {
 			switch (ret[0].value.str) {
 				case "define": {
+					if (ret[1].type == NodeType.CALL) {
+						Node name = ret[1].value.nodes[0];
+						Node[] args = ret[1].value.nodes[1..$];
+						Node[] code = ret[2..$];
+						Node argv = new Node(NodeType.CALL, NodeValue(args));
+						Node lambda = new Node(NodeType.LAMBDA, NodeValue([argv] ~ code));
+						Node define = new Node(NodeType.STORE, NodeValue([name, lambda]));
+						return define;
+					}
 					return new Node(NodeType.STORE, NodeValue(ret[1..$]));
 				}
 				case "lambda": {
@@ -99,21 +132,21 @@ Node parseNode(string str, ulong *index) {
 	return new Node(NodeType.LOAD, NodeValue(cast(string) name));
 }
 
-Node parse1(string code, ulong *index) {
-	Node n = parseNode(code, index);
-	while (*index != code.length && (code[*index] == '\t' || code[*index] == '\r' || code[*index] == ' ' || code[*index] == '\n')) {
-		(*index) ++;
+Node parse1(string code, Info info) {
+	Node n = parseNode(code, info);
+	while (info.index != code.length && code[info.index].isWhite) {
+		info.got(code[info.index]);
 	}
 	return new Node(NodeType.PROGRAM, NodeValue([n]));
 }
 
 Node parses(string str) {
-	ulong index = 0;
+	Info info = new Info();
 	Node[] ret = [];
-	while (index != str.length) {
-		ret ~= parseNode(str, &index);
-		while (index != str.length && (str[index] == '\t' || str[index] == '\r' || str[index] == ' ' || str[index] == '\n')) {
-			index ++;
+	while (info.index != str.length) {
+		ret ~= parseNode(str, info);
+		while (info.index != str.length && str[info.index].isWhite) {
+			info.got(str[info.index]);
 		}
 	}
 	return new Node(NodeType.PROGRAM, NodeValue(ret));

@@ -13,4 +13,5 @@ dex-test-*
 *.obj
 *.lst
 dex
+app
 perf*

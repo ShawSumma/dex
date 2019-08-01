@@ -4,6 +4,7 @@ import std.stdio;
 import obj;
 import node;
 import lib;
+import extend;
 
 enum OpcodeType {
 	INIT,
@@ -42,7 +43,6 @@ class Program {
 	string[][] funccaps = [];
 	string[][] funcargnames = [];
 	bool[] isglobs = [];
-	ulong[2][] initnames = [];
 	void emit(OpcodeType type, ulong value) {
 		code ~= new Opcode(type, value);
 	}
@@ -167,7 +167,7 @@ struct Vm {
 	Obj run(Program program, ulong ip=0, Obj[string] mlocals=null) {
 		return run!true(program, ip, mlocals);
 	}
-	Obj run(bool init)(Program program, ulong ipv=0, Obj[string] mlocals=null, void delegate() retcall=null, void delegate() initcall=null) {
+	Obj run(bool init)(Program program, ulong ipv=0, Obj[string] mlocals=null) {
 		ulong *ip = new ulong(ipv);
 		static if (init) {
 			locals ~= mlocals;
@@ -176,11 +176,9 @@ struct Vm {
 			ips ~= ip;
 			programs ~= program;
 		}
-		if (initcall != null) {
-			initcall();
-		}
 		while (true) {
 			Opcode op = program.code[*ip];
+			// writeln(op);
 			final switch (op.type) {
 				case OpcodeType.CALL: {
 					Obj[] args = stack[$-1][$-op.value..$];
@@ -225,9 +223,6 @@ struct Vm {
 					break;
 				} 
 				case OpcodeType.EXIT: {
-					if (retcall != null) {
-						retcall();
-					}
 					Obj[] last = stack[$-1];
 					static if (init) {
 						lastlocals = locals[$-1];
@@ -244,7 +239,7 @@ struct Vm {
 					foreach(i; program.funccaps[op.value]) {
 						cap[i] = &locals[$-1][i];
 					}
-					FuncLocation loc = new FuncLocation;
+					FuncLocation loc;
 					loc.cap = cap;
 					loc.place = *ip+1;
 					loc.owner = program;
@@ -259,9 +254,6 @@ struct Vm {
 					break;
 				}
 				case OpcodeType.RET: {
-					if (retcall != null) {
-						retcall();
-					}
 					Obj[] last = stack[$-1];
 					static if (init) {
 						stack.popBack;
@@ -281,7 +273,7 @@ struct Vm {
 			(*ip) ++;
 		}
 	}
-	Obj delegate(Vm vm, Obj[] args) state() {
+	Obj state() {
 		Obj[string] ll = lastlocals.dup;
 		Obj[string][] l = locals.dup;
 		Obj[][] s = stack.dup;
@@ -290,16 +282,17 @@ struct Vm {
 			i ~= new ulong(*v);
 		}
 		Program[] p = programs.dup;
-		Obj ret(Vm vm, Obj[] args) {
-			Vm newvm = Vm();
-			s[$-1] ~= Obj(&ret);
-			newvm.locals = l;
-			newvm.ips = i;
-			newvm.programs = p;
-			newvm.stack = s;
-			return newvm.run!false(p[$-1], *i[$-1], l[$-1],);
-		}
+		Obj function(Vm, Obj[], Obj[]) ret = &saveStateVm;
 		(*i[$-1]) ++;
-		return &ret;
+		Obj[] args = [
+			Obj(),
+			Obj(ll),
+			Obj(l),
+			Obj(i),
+			Obj(p),
+			Obj(s)
+		];
+		args[0] = Obj(Func(ret, args, "vm.state"));
+		return args[0];
 	}
 }
