@@ -75,7 +75,7 @@ class Program {
 			}
 			else {
 				emit(OpcodeType.CONST, consts.length);
-				consts ~= Obj(); 
+				consts ~= new Obj(); 
 				emit(OpcodeType.EXIT);
 			}
 		}
@@ -91,11 +91,11 @@ class Program {
 		}
 		if (type == NodeType.NUMBER) {
 			emit(OpcodeType.CONST, consts.length);
-			consts ~= Obj(node.value.num); 
+			consts ~= new Obj(node.value.num); 
 		}
 		if (type == NodeType.STRING) {
 			emit(OpcodeType.CONST, consts.length);
-			consts ~= Obj(node.value.str); 
+			consts ~= new Obj(node.value.str); 
 		}
 		if (type == NodeType.STORE) {
 			walk(node.value.nodes[1]);
@@ -162,7 +162,7 @@ struct Vm {
 		lastlocals[name] = value;
 	}
 	void define(T)(string name, T value) {
-		lastlocals[name] = Obj(name);
+		lastlocals[name] = new Obj(name);
 	}
 	Obj run(Program program, ulong ip=0, Obj[string] mlocals=null) {
 		return run!true(program, ip, mlocals);
@@ -178,7 +178,6 @@ struct Vm {
 		}
 		while (true) {
 			Opcode op = program.code[*ip];
-			// writeln(op);
 			final switch (op.type) {
 				case OpcodeType.CALL: {
 					Obj[] args = stack[$-1][$-op.value..$];
@@ -245,12 +244,12 @@ struct Vm {
 					loc.owner = program;
 					loc.argnames = program.funcargnames[op.value];
 					loc.isglob = program.isglobs[op.value];
-					stack[$-1] ~= Obj(loc);
+					stack[$-1] ~= new Obj(loc);
 					*ip = func;
 					break;
 				}
 				case OpcodeType.SPACE: {
-					locals[$-1][program.strings[op.value]] = Obj();
+					locals[$-1][program.strings[op.value]] = new Obj();
 					break;
 				}
 				case OpcodeType.RET: {
@@ -285,14 +284,14 @@ struct Vm {
 		Obj function(Vm, Obj[], Obj[]) ret = &saveStateVm;
 		(*i[$-1]) ++;
 		Obj[] args = [
-			Obj(),
-			Obj(ll),
-			Obj(l),
-			Obj(i),
-			Obj(p),
-			Obj(s)
+			new Obj(),
+			new Obj(ll),
+			new Obj(l),
+			new Obj(i),
+			new Obj(p),
+			new Obj(s)
 		];
-		args[0] = Obj(Func(ret, args, "vm.state"));
+		args[0] = new Obj(Func(ret, args, "vm.state"));
 		return args[0];
 	}
 }

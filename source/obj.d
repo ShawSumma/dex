@@ -41,7 +41,7 @@ struct Func {
 }
 
 // object types represented by the enum Type and Type type
-struct Obj {
+class Obj {
 	enum Type {
 		VOID = 1,
 		BOOL,
@@ -76,6 +76,9 @@ struct Obj {
 		return this;
 	}
 	// these construct an object
+	this() {
+		type = Type.VOID;
+	}
 	this(Obj[string][] v) {
 		type = Type.STR_MAP_LIST;
 		value._str_map_list = v; 
@@ -179,7 +182,7 @@ struct Obj {
 		assert(0);
 	}
 	// does not do recursivly to prevent stack overflow
-	string toString() {
+	override string toString() {
 		if (peek!double) {
 			return to!string(get!double);
 		}
@@ -190,7 +193,12 @@ struct Obj {
 			return to!string(get!(Obj[]));
 		}
 		if (peek!Func) {
-			return "(function)";
+			if (get!Func.name == "") {
+				return "(function)";
+			}
+			else {
+				return "(function " ~ get!Func.name ~ ")";				
+			}
 		}
 		if (peek!bool) {
 			return to!string(get!bool);
@@ -202,7 +210,7 @@ struct Obj {
 			serial(state, v);
 		}
 		if (!state.add(this)) {
-			o(cast(ulong) 0);
+			state.refs ~= 0;
 			o(state.objs[this]);
 			return;
 		}
@@ -298,7 +306,7 @@ struct FuncLocation {
 	Obj opCall(Vm vm, Obj[] argind) {
 		Obj[string] args;
 		if (isglob) {
-			args[argnames[0]] = Obj(argind);
+			args[argnames[0]] = new Obj(argind);
 		}
 		else {
 			foreach (t; zip(argind, argnames)) {

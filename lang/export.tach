@@ -6,4 +6,7 @@
                 (fib (- n 2))
                 (fib (- n 1))))))
 
-(save-to "(out/) (export fib))
+(file-save '(out/fib.tach.bin) (export fib))
+(define got (file-read '(out/fib.tach.bin)))
+(define obj-got (import got))
+(println obj-got)

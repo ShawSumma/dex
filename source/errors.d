@@ -219,7 +219,7 @@ Obj funcCheck(string S)(Vm vm, Obj func, Obj[] args) {
     if (!isokay) {
         // functions dont carry a name as they come from lambdas
         // does not show function name
-        writeln("error: bad args to a func");
+        writeln("error: bad args to a func ", func.value._func.name);
         begin:
         write("(error): ");
         string line = readln[0..$-1];
@@ -318,8 +318,8 @@ Obj funcCheck(string S)(Vm vm, Obj func, Obj[] args) {
 
 // convert function to delegate that is checked
 Obj funcConv(string S, string N)(Obj function(Vm vm, Obj[] args) func) {
-    return Obj((Vm vm, Obj[] args, Obj[] cap) => funcCheck!S(vm, cap[0], args), [Obj(func, N)], N);
-    // return (Vm vm, Obj[] args) => funcCheck!S(vm, Obj(Func(func)), args);
+    return new Obj((Vm vm, Obj[] args, Obj[] cap) => funcCheck!S(vm, cap[0], args), [new Obj(func, N)], N);
+    // return (Vm vm, Obj[] args) => funcCheck!S(vm, new Obj(Func(func)), args);
 }
 
 // make an object out of a function

@@ -1,5 +1,7 @@
 import std.traits;
 import std.stdio;
+import std.algorithm;
+import std.range;
 import obj;
 import extend;
 import vm;
@@ -7,10 +9,9 @@ import vm;
 struct InputSerial {
     ubyte[] code;
     ulong ind;
-    Obj[ulong] objs;
+    Obj *[ulong] objs;
     this(ubyte[] c) {
         code = c;
-        // writeln(code);
         ind = 0;
     }
     U reint(U)() {
@@ -88,15 +89,15 @@ struct InputSerial {
         return ret;
     }
     Obj read() {
-        ulong begin = code.length;
-        Obj ret = reads;
-        objs[begin] = ret;
-        return ret;
+        ulong begin = ind;
+        objs[begin] = [new Obj()].ptr;
+        *objs[begin] = reads;
+        return *objs[begin];
     }
     Obj reads() {
         if (code[ind] == 0) {
             ind ++;
-            return objs[reint!ulong];
+            return *objs[reint!ulong];
         }
         alias Type = Obj.Type;
 		Type got = cast(Type) code[ind];
@@ -105,17 +106,17 @@ struct InputSerial {
             case Type.BOOL: {
                 bool ret = code[ind] != 0;
                 ind ++;
-                return Obj(ret);
+                return new Obj(ret);
 			}
 			case Type.NUMBER: {
-                return Obj(cast(double) reint!double);
+                return new Obj(cast(double) reint!double);
 			}
 			case Type.LIST: {
                 Obj[] list;
                 foreach (i; 0..reint!ulong) {
                     list ~= read; 
                 }
-                return Obj(list);
+                return new Obj(list);
 			}
 			case Type.FUNCTION: {
                 Func.Type ty = cast(Func.Type) code[ind];
@@ -161,9 +162,14 @@ struct InputSerial {
                                 str ~= code[ind];
                                 ind ++;
                             }
-                            Obj *val = new Obj;
-                            *val = read;
-                            cap[cast(string) str] = val;
+                            // Obj *p = read();
+                            if (code[ind] == 0) {
+                                ind ++;
+                                cap[cast(string) str] = objs[reint!ulong];
+                            }
+                            else {
+                                cap[cast(string) str] = [read].ptr;
+                            }
                         }
                         Program owner = readprog;
                         Func f;
@@ -173,7 +179,7 @@ struct InputSerial {
                         f.value.loc.argnames = argnames;
                         f.value.loc.cap = cap;
                         f.value.loc.owner = owner;
-                        return Obj(f);
+                        return new Obj(f);
                     }
                 }
 			}
@@ -183,10 +189,10 @@ struct InputSerial {
                     str ~= code[ind]; 
                     ind ++;
                 }
-                return Obj(cast(string) str);
+                return new Obj(cast(string) str);
 			}
 			case Type.VOID: {
-                return Obj();
+                return new Obj();
 			}
 			case Type.STR_MAP: {
                 Obj[string] mapping;
@@ -198,7 +204,7 @@ struct InputSerial {
                     }
                     mapping[cast(string) str] = read;
                 }
-                return Obj(mapping);
+                return new Obj(mapping);
 			}
 			case Type.STR_MAP_LIST: {
                 Obj[string][] maplist;
@@ -214,7 +220,7 @@ struct InputSerial {
                     }
                     maplist ~= mapping;
                 }
-                return Obj(maplist);
+                return new Obj(maplist);
 			}
 			case Type.LIST_LIST: {
                 Obj[] llist;
@@ -224,21 +230,21 @@ struct InputSerial {
                         list ~= read; 
                     }
                 }
-                return Obj(llist);
+                return new Obj(llist);
 			}
 			case Type.ULONG_PTR_LIST: {
                 ulong*[] ret;
                 foreach (i; 0..reint!ulong) {
                     ret ~= new ulong(reint!ulong);
                 }
-                return Obj(ret);
+                return new Obj(ret);
 			}
 			case Type.PROGRAM_LIST: {
                 Program[] ret;
                 foreach (i; 0..reint!ulong) {
                     ret ~= readprog;
                 }
-                return Obj(ret);
+                return new Obj(ret);
 			}
         }
         assert(0);

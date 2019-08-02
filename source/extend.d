@@ -5,6 +5,8 @@ import std.algorithm;
 import std.range;
 import std.numeric;
 import core.stdc.stdlib;
+import std.file;
+import std.utf;
 import lib;
 import app;
 import errors;
@@ -21,7 +23,7 @@ Obj libprint(Vm vm, Obj[] args) {
     foreach(arg; args) {
         write(arg);
     }
-    return Obj();
+    return new Obj();
 }
 
 // loaded as println
@@ -31,14 +33,14 @@ Obj libprintln(Vm vm, Obj[] args) {
         write(arg);
     }
     writeln;
-    return Obj();
+    return new Obj();
 }
 
 // loaded as newline
 // print a newline
 Obj libnewline(Vm vm, Obj[] args) {
     writeln;
-    return Obj();
+    return new Obj();
 }
 
 // loaded as +
@@ -49,7 +51,7 @@ Obj libadd(Vm vm, Obj[] args) {
     foreach (arg; args) {
         ret += arg.get!double;
     }
-    return Obj(ret);
+    return new Obj(ret);
 }
 
 // loaded as *
@@ -60,7 +62,7 @@ Obj libmul(Vm vm, Obj[] args) {
     foreach (arg; args) {
         ret *= arg.get!double;
     }
-    return Obj(ret);
+    return new Obj(ret);
 }
 
 // loaded as - 
@@ -69,13 +71,13 @@ Obj libmul(Vm vm, Obj[] args) {
 // if there are no arguments error
 Obj libsub(Vm vm, Obj[] args) {
     if (args.length == 1) {
-        return Obj(-args[0].get!double);
+        return new Obj(-args[0].get!double);
     }
     double ret = args[0].get!double;
     foreach (arg; args[1..$]) {
         ret -= arg.get!double;
     }
-    return Obj(ret);
+    return new Obj(ret);
 }
 
 // loaded as /
@@ -84,13 +86,13 @@ Obj libsub(Vm vm, Obj[] args) {
 // if ther is no arguemnts error
 Obj libdiv(Vm vm, Obj[] args) {
     if (args.length == 1) {
-        return Obj(1/args[0].get!double);
+        return new Obj(1/args[0].get!double);
     }
     double ret = args[0].get!double;
     foreach (arg; args[1..$]) {
         ret /= arg.get!double;
     }
-    return Obj(ret);
+    return new Obj(ret);
 }
 
 // loaded as <
@@ -103,10 +105,10 @@ Obj liblt(Vm vm, Obj[] args) {
             val = next;
         }
         else {
-            return Obj(false);
+            return new Obj(false);
         }
     }
-    return Obj(true);
+    return new Obj(true);
 }
 
 // loaded as >
@@ -119,10 +121,10 @@ Obj libgt(Vm vm, Obj[] args) {
             val = next;
         }
         else {
-            return Obj(false);
+            return new Obj(false);
         }
     }
-    return Obj(true);
+    return new Obj(true);
 }
 
 // loaded as <=
@@ -135,10 +137,10 @@ Obj liblte(Vm vm, Obj[] args) {
             val = next;
         }
         else {
-            return Obj(false);
+            return new Obj(false);
         }
     }
-    return Obj(true);
+    return new Obj(true);
 }
 
 // loaded as >=
@@ -151,10 +153,10 @@ Obj libgte(Vm vm, Obj[] args) {
             val = next;
         }
         else {
-            return Obj(false);
+            return new Obj(false);
         }
     }
-    return Obj(true);
+    return new Obj(true);
 }
 
 // loaded as apply
@@ -190,7 +192,7 @@ Obj libmap(Vm vm, Obj[] args) {
     foreach (arg; funcargs) {
         ret ~= call(vm, func, arg);
     }
-    return Obj(ret);
+    return new Obj(ret);
 }
 
 // loaded as do
@@ -204,7 +206,7 @@ Obj libdo(Vm vm, Obj[] args) {
 // loaded as list
 // returns a list made from all arguements
 Obj liblist(Vm vm, Obj[] args) {
-    return Obj(args);
+    return new Obj(args);
 }
 
 // loaded as range
@@ -216,17 +218,17 @@ Obj librange(Vm vm, Obj[] args) {
         double begin = 0;
         double end = args[0].get!double;
         foreach (i; begin..end) {
-            ret ~= Obj(i);
+            ret ~= new Obj(i);
         }
     }
     if (args.length == 2) {
         double begin = args[0].get!double;
         double end = args[1].get!double;
         foreach (i; begin..end) {
-            ret ~= Obj(i);
+            ret ~= new Obj(i);
         }
     }
-    return Obj(ret);
+    return new Obj(ret);
 }
 
 // loaded as times
@@ -237,17 +239,17 @@ Obj libtimes(Vm vm, Obj[] args) {
     foreach (i; 0..args[0].get!double) {
         ret ~= args[1];
     }
-    return Obj(ret);
+    return new Obj(ret);
 }
 
 // loaded as length
 // gets the length of a string or list
 Obj liblength(Vm vm, Obj[] args) {
     if (args[0].peek!string) {
-        return Obj(args[0].get!string.length);
+        return new Obj(args[0].get!string.length);
     }
     else {
-        return Obj(args[0].get!(Obj[]).length);
+        return new Obj(args[0].get!(Obj[]).length);
     }
 }
 
@@ -261,9 +263,19 @@ Obj libref(Vm vm, Obj[] args) {
 Obj libvars(Vm vm, Obj[] args) {
     Obj[] ret = [];
     foreach(k; vm.locals[$-1].keys) {
-        ret ~= Obj(k);
+        ret ~= new Obj(k);
     }
-    return Obj(ret);
+    return new Obj(ret);
+}
+
+Obj libsaveto(Vm vm, Obj[] args) {
+    File f = File(args[0].get!string, "w");
+    f.write(args[1].get!string);
+    return new Obj();
+}
+
+Obj libreadto(Vm vm, Obj[] args) {
+    return new Obj(cast(string) read(args[0].get!string));
 }
 
 // loaded as save
@@ -274,9 +286,8 @@ Obj libsave(Vm vm, Obj[] args) {
 
 Obj libexport(Vm vm, Obj[] args) {
     Serial state = new Serial;
-    // serial(state, vm);
     args[0].write(state);
-    return Obj(cast(string) state.refs);
+    return new Obj(cast(string) state.refs);
 }
 
 Obj libimport(Vm vm, Obj[] args) {
@@ -287,7 +298,7 @@ Obj libimport(Vm vm, Obj[] args) {
 
 string newFuncObj(string argt, string name, string as)() {
     string ret = "ret[\"" ~ as  ~ "\"] = " ~ "funcObj!(\"" ~ argt ~ "\", \"" ~ as ~ "\")(&lib" ~ name ~ ");";
-    ret ~= "ret[\"unsafe:" ~ as  ~ "\"] = " ~ "Obj(&lib" ~ name ~ ", \"unsafe:" ~ as ~ "\");";
+    ret ~= "ret[\"unsafe:" ~ as  ~ "\"] = " ~ "new Obj(&lib" ~ name ~ ", \"unsafe:" ~ as ~ "\");";
     return ret;
 }
 
@@ -313,15 +324,15 @@ Obj readFetch(string str) {
 
 Obj readFetchDel(string str, Obj[] cap) {
     Obj[string] funcs = xfuncs;
-    funcs["vm.state"] = Obj(Func(&saveStateVm, cap, "vm.state"));
+    funcs["vm.state"] = new Obj(Func(&saveStateVm, cap, "vm.state"));
     return funcs[str];
 }
 
 // load every function
 Obj[string] xfuncs() {
     Obj[string] ret = [
-        "true": Obj(true),
-        "false": Obj(false),
+        "true": new Obj(true),
+        "false": new Obj(false),
     ];
     mixin(newFuncObj!("{}", "vars"));
     mixin(newFuncObj!("{(*a)}", "print"));
@@ -345,6 +356,8 @@ Obj[string] xfuncs() {
     mixin(newFuncObj!("{(+n)}", "gte", ">="));
     mixin(newFuncObj!("{}", "save", "save"));
     mixin(newFuncObj!("{a}", "export"));
+    mixin(newFuncObj!("{ss}", "saveto", "file-save"));
+    mixin(newFuncObj!("{s}", "readto", "file-read"));
     mixin(newFuncObj!("{a}", "import"));
     return ret;
 }

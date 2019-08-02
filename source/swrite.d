@@ -22,12 +22,6 @@ ubyte[] reint(U)(U t) {
 }
 
 void serial(Serial state, double s) {
-    // union Val {
-    //     double d;
-    //     ubyte[double.sizeof] a;
-    // }
-    // Val v;
-    // v.d = s;
     state.refs ~= reint(s);
 }
 
@@ -95,6 +89,7 @@ void serial(Serial state, Vm vm) {
 }
 
 void serial(T)(Serial state, T *v) {
+    ulong bind = state.refs.length;
     static if (is(T == Obj)) {
         v.write(state);
     }
