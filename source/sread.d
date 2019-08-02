@@ -162,7 +162,6 @@ struct InputSerial {
                                 str ~= code[ind];
                                 ind ++;
                             }
-                            // Obj *p = read();
                             if (code[ind] == 0) {
                                 ind ++;
                                 cap[cast(string) str] = objs[reint!ulong];

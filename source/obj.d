@@ -49,7 +49,7 @@ class Obj {
 		LIST,
 		FUNCTION,
 		STRING,
-		// other
+		// other for (vm.state)
 		STR_MAP,
 		STR_MAP_LIST,
 		LIST_LIST,
