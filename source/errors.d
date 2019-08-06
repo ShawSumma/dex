@@ -12,37 +12,32 @@ import node;
 import parse;
 
 // a repl for use from errors
-// exit does not actually call anything
+// exit does not actually whcall anything
 void errorRepl(Vm vm) {
-    Obj[string] ll = vm.lastlocals;
-    vm.lastlocals = vm.locals[$-1];
-    vm.locals.popBack;
     while (true) {
         write(">>> ");
-        string inp = readln[0..$-1];
-        // if the input is exit stop the repl and cleanup
-        if (inp == "(exit)") {
-            break;
-        }
-        // read until all parens are closed
-        while (count(inp, '(') - count(inp, ')') != 0) {
+        string text = readln[0..$-1];
+        while (count(text, '(') - count(text, ')') != 0) {
             write("... ");
-            foreach(i; 0..count(inp, '(') - count(inp, ')')) {
-                write("    ");
+            foreach (i; 0..count(text, '(')-count(text, ')')) {
+                writeln("    ");
             }
-            inp ~= readln;
+            text ~= readln[0..$-1];
         }
+        if (text == "(done)") {
+            return;
+        }
+        Node node = parses(text);
         Program program = new Program;
-        Node n = parses(inp);
-        program.walk(n);
-        Obj got = vm.run(program, 0);
-        // if the obj has a value show it
+        program.walk(node);
+        vm.programs ~= program;
+        vm.ips ~= new ulong(0);
+        Obj got = vm.run!false;
         if (!got.peek!void) {
             writeln(got);
         }
+        vm.programs.popBack;
     }
-    vm.locals ~= vm.lastlocals;
-    vm.lastlocals = ll;
 }
 
 // argument type checker node
@@ -80,12 +75,10 @@ struct Argexp {
         else {
             Argexp[] exps = value.calls[1..$];
             ArgType fn = value.calls[0].value.type;
-            // commands are
             // command '|' means any of
             // command '>' means in order of
             // command '*' means any number of
             // command '+' means nonzero number of
-            // aliases are
             // alias {} means in order of
             // alias [] means any of
             final switch (fn) {

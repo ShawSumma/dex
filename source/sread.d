@@ -23,7 +23,9 @@ struct InputSerial {
     Program readprog () {
         Opcode[] codes;
         foreach (i; 0..reint!ulong) {
-            codes ~= new Opcode(cast(OpcodeType) reint!ubyte, reint!ulong);
+            OpcodeType ot = cast(OpcodeType) code[ind];
+            ind ++;
+            codes ~= new Opcode(ot, reint!ulong);
         }
         Obj[] consts;
         foreach (i; 0..reint!ulong) {
@@ -222,12 +224,13 @@ struct InputSerial {
                 return new Obj(maplist);
 			}
 			case Type.LIST_LIST: {
-                Obj[] llist;
+                Obj[][] llist;
                 foreach (j; 0..reint!ulong) {
                     Obj[] list;
                     foreach (i; 0..reint!ulong) {
                         list ~= read; 
                     }
+                    llist ~= list;
                 }
                 return new Obj(llist);
 			}

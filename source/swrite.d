@@ -21,12 +21,16 @@ ubyte[] reint(U)(U t) {
     return val;
 }
 
-void serial(Serial state, double s) {
-    state.refs ~= reint(s);
+void serial(Serial state, double d) {
+    state.refs ~= reint(d);
 }
 
-void serial(Serial state, ulong s) {
-    state.refs ~= reint(s);
+void serial(Serial state, char c) {
+    state.refs ~= cast(ubyte) c;
+}
+
+void serial(Serial state, ulong ul) {
+    state.refs ~= reint(ul);
 }
 
 void serial(T)(Serial state, T[] arr) {
@@ -36,12 +40,12 @@ void serial(T)(Serial state, T[] arr) {
     }
 }
 
-void serial(Serial state, string str) {
-    state.refs ~= reint(str.length);
-    foreach (n; str) {
-        state.refs ~= cast(ubyte) n;
-    }
-}
+// void serial(Serial state, string str) {
+//     state.refs ~= reint(str.length);
+//     foreach (n; str) {
+//         state.refs ~= cast(ubyte) n;
+//     }
+// }
 
 void serial(Serial state, Obj v) {
     v.write(state);
@@ -82,7 +86,6 @@ void serial(Serial state, Program p) {
 }
 
 void serial(Serial state, Vm vm) {
-    serial(state, vm.lastlocals);
     serial(state, vm.locals);
     serial(state, vm.programs);
     serial(state, vm.stack);

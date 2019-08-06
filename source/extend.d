@@ -7,6 +7,7 @@ import std.numeric;
 import core.stdc.stdlib;
 import std.file;
 import std.utf;
+import core.stdc.stdlib;
 import lib;
 import app;
 import errors;
@@ -259,15 +260,6 @@ Obj libref(Vm vm, Obj[] args) {
     return args[0].get!(Obj[])[cast(ulong) args[1].get!double];
 }
 
-// gets all varables currently loaded in the last stack
-Obj libvars(Vm vm, Obj[] args) {
-    Obj[] ret = [];
-    foreach(k; vm.locals[$-1].keys) {
-        ret ~= new Obj(k);
-    }
-    return new Obj(ret);
-}
-
 Obj libsaveto(Vm vm, Obj[] args) {
     File f = File(args[0].get!string, "w");
     f.write(args[1].get!string);
@@ -276,12 +268,6 @@ Obj libsaveto(Vm vm, Obj[] args) {
 
 Obj libreadto(Vm vm, Obj[] args) {
     return new Obj(cast(string) read(args[0].get!string));
-}
-
-// loaded as save
-// save the satate similar to a goto
-Obj libsave(Vm vm, Obj[] args) {
-    return vm.state;
 }
 
 Obj libexport(Vm vm, Obj[] args) {
@@ -296,6 +282,26 @@ Obj libimport(Vm vm, Obj[] args) {
     return ser.read;
 }
 
+Obj libexit(Vm vm, Obj[] args) {
+    exit(0);
+    assert(0);
+}
+
+Obj libpause(Vm vm, Obj[] args) {
+    return new Obj(cast(string) vm.write());
+}
+
+Obj libresume(Vm vm, Obj[] args) {
+    Vm v = new Vm(cast(ubyte[]) read(args[0].get!string));
+    return v.run!false;   
+}
+
+Obj libreplback(Vm vm, Obj[] args, Obj[] cap) {
+    Vm v = new Vm(cast(ubyte[]) cap[cast(ulong) args[0].get!double].get!string);
+    vm.locals = v.locals;
+    return new Obj();
+}
+
 string newFuncObj(string argt, string name, string as)() {
     string ret = "ret[\"" ~ as  ~ "\"] = " ~ "funcObj!(\"" ~ argt ~ "\", \"" ~ as ~ "\")(&lib" ~ name ~ ");";
     ret ~= "ret[\"unsafe:" ~ as  ~ "\"] = " ~ "new Obj(&lib" ~ name ~ ", \"unsafe:" ~ as ~ "\");";
@@ -306,17 +312,6 @@ string newFuncObj(string argt, string name)() {
     return newFuncObj!(argt, name, name);
 }
 
-Obj saveStateVm(Vm vm, Obj[] args, Obj[] cap) {
-    Vm newvm = Vm();
-    cap[5].value._list_list[$-1] ~= cap[0];
-    newvm.lastlocals = cap[1].value._str_map;
-    newvm.locals = cap[2].value._str_map_list;
-    newvm.ips = cap[3].value._ulong_ptr_list;
-    newvm.programs = cap[4].value._program_list;
-    newvm.stack = cap[5].value._list_list;
-    return newvm.run!false(newvm.programs[$-1], *newvm.ips[$-1], newvm.locals[$-1]);
-};
-
 Obj readFetch(string str) {
     Obj[string] funcs = xfuncs;
     return funcs[str];
@@ -324,7 +319,7 @@ Obj readFetch(string str) {
 
 Obj readFetchDel(string str, Obj[] cap) {
     Obj[string] funcs = xfuncs;
-    funcs["vm.state"] = new Obj(Func(&saveStateVm, cap, "vm.state"));
+    funcs["repl.goto"] = new Obj(Func(&libreplback, cap, "repl.goto"));
     return funcs[str];
 }
 
@@ -334,7 +329,7 @@ Obj[string] xfuncs() {
         "true": new Obj(true),
         "false": new Obj(false),
     ];
-    mixin(newFuncObj!("{}", "vars"));
+    mixin(newFuncObj!("{}", "exit"));
     mixin(newFuncObj!("{(*a)}", "print"));
     mixin(newFuncObj!("{(*a)}", "println"));
     mixin(newFuncObj!("{}", "newline"));
@@ -354,10 +349,11 @@ Obj[string] xfuncs() {
     mixin(newFuncObj!("{(+n)}", "gt", ">"));
     mixin(newFuncObj!("{(+n)}", "lte", "<="));
     mixin(newFuncObj!("{(+n)}", "gte", ">="));
-    mixin(newFuncObj!("{}", "save", "save"));
     mixin(newFuncObj!("{a}", "export"));
     mixin(newFuncObj!("{ss}", "saveto", "file-save"));
     mixin(newFuncObj!("{s}", "readto", "file-read"));
     mixin(newFuncObj!("{a}", "import"));
+    mixin(newFuncObj!("{}", "pause", "vm-save"));
+    mixin(newFuncObj!("{s}", "resume", "vm-resume"));
     return ret;
 }

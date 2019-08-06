@@ -1,4 +1,0 @@
-(define file-name '(out/triangle.tach.bin))
-(println '(reading from ) file-name)
-(define tri (import (file-read file-name)))
-(tri)

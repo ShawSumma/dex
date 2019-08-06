@@ -316,7 +316,7 @@ struct FuncLocation {
 		foreach (c; cap.byKeyValue) {
 			args[c.key] = *c.value;
 		}
-		return vm.run!true(owner, place, args);
+		return vm.run(owner, place, args);
 	}
 }
 

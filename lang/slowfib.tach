@@ -1,0 +1,13 @@
+(define n 0)
+(define (slow x) (import (export x)))
+
+(define fib
+    (lambda (n)
+        (if (< n 2)
+            n
+            (+
+                ((slow fib) (- n 2))
+                ((slow fib) (- n 1))))))
+
+
+(println (fib 20))
