@@ -13,6 +13,7 @@ dex-test-*
 *.obj
 *.lst
 dex
+scheme
 app
 perf*
 dscanner.ini

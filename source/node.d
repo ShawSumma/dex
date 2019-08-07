@@ -23,6 +23,8 @@ enum NodeType {
 	CALL,
 	STRING,
 	PROGRAM,
+	AND,
+	OR,
 }
 
 enum Require {
@@ -62,6 +64,8 @@ class Node {
 			// they merge all nodes' requires
 			case NodeType.CALL: goto case;
 			case NodeType.IF: goto case;
+			case NodeType.AND: goto case;
+			case NodeType.OR: goto case;
 			case NodeType.PROGRAM: {
 				foreach (n; v.nodes) {
 					foreach (k; n.requires.byKeyValue) {

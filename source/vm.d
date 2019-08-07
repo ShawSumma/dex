@@ -14,12 +14,14 @@ enum OpcodeType {
 	STORE,
 	LOAD,
 	CONST,
+	DUP,
 	POP,
 	FUNC,
 	CALL,
 	RET,
 	JUMPF,
-	JUMP
+	JUMPT,
+	JUMP,
 }
 
 class Opcode {
@@ -108,9 +110,30 @@ class Program {
 			walk(node.value.nodes[1]);
 			ulong j = code.length;
 			emit(OpcodeType.JUMP);
-			walk(node.value.nodes[2]);
+			if (node.value.nodes.length == 3) {
+				walk(node.value.nodes[2]);
+			}
+			else {
+				emit(OpcodeType.CONST, consts.length);
+				consts ~= new Obj(); 
+				emit(OpcodeType.RET);
+			}
 			code[jf].value = j;
 			code[j].value = code.length-1;
+		}
+		if (type == NodeType.AND) {
+			ulong[] jfp = [];
+			foreach (i; node.value.nodes[0..$-1]) {
+				walk(i);
+				emit(OpcodeType.DUP);
+				jfp ~= code.length;
+				emit(OpcodeType.JUMPF);
+				emit(OpcodeType.POP);
+			}
+			walk(node.value.nodes[$-1]);
+			foreach (i; jfp) {
+				code[i].value = code.length-1;
+			}
 		}
 		if (type == NodeType.LAMBDA) {
 			bool isglob = node.value.nodes[0].type == NodeType.LOAD;
@@ -177,6 +200,8 @@ class Vm {
 		program = programs[$-1];
 		while (true) {
 			Opcode op = program.code[*ips[$-1]];
+			writeln(stack[$-1]);
+			writeln(op);
 			final switch (op.type) {
 				case OpcodeType.CALL: {
 					Obj[] args = stack[$-1][$-op.value..$];
@@ -210,10 +235,22 @@ class Vm {
 					stack[$-1].popBack;
 					break;
 				}
+				case OpcodeType.DUP: {
+					stack[$-1] ~= stack[$-1][$-1];
+					break;
+				}
 				case OpcodeType.JUMPF: {
 					Obj last = stack[$-1][$-1];
 					stack[$-1].popBack;
-					if (last.peek!void || (last.peek!bool == true && last.get!bool == false)) {
+					if (last.peek!void || (last.peek!bool && last.get!bool == false)) {
+						*ips[$-1] = op.value;
+					}
+					break;
+				}
+				case OpcodeType.JUMPT: {
+					Obj last = stack[$-1][$-1];
+					stack[$-1].popBack;
+					if (!last.peek!void || (last.peek!bool && last.get!bool == true)) {
 						*ips[$-1] = op.value;
 					}
 					break;

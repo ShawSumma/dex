@@ -9,10 +9,19 @@ import parse;
 import node;
 import vm;
 import extend;
+import std.net.curl;
+import std.socket;
+import core.stdc.stdlib;
 
 void main(string[] args) {
-	if (!exists(".dex")) {
-		mkdir(".dex");
+	string dir = ".dex";
+	if (canFind(args, "--fold")) {
+		foreach(i; 0..args.length) {
+			if (args[i] == "--fold") {
+				dir = args[i+1];
+				break;
+			}
+		}
 	}
 	if (args.length > 1 && args[1][0] != '-') {
 		// file mode
@@ -28,13 +37,21 @@ void main(string[] args) {
 		}
 	}
 	else {
+		string rfread() {
+			return cast(string) read(dir ~ "/repl");
+		}
+		void rfwrite(string c) {
+			File f = File(dir ~ "/repl", "wb");
+			f.write(c);
+		}
 		Vm vm = new Vm();
 		Obj[string] initlocals = [
 			"goto": new Obj(cast(Obj[]) [])
 		];
 		vm.locals ~= initlocals;
 		if (!canFind(args, "--new")) {
-			vm.locals = new Vm(cast(ubyte[]) read(".dex/repl")).locals;
+			vm.locals = new Vm(cast(ubyte[]) rfread()).locals;
+			// vm = new Vm(cast(ubyte[]) rfread());
 		}
 		vm.ips ~= new ulong(0);
 		vm.programs ~= new Program;
@@ -44,14 +61,11 @@ void main(string[] args) {
 		while (true) {
 			vm.locals[$-1]["goto"] = new Obj();
 			ubyte[] back = vm.write();
-			if (exists(".dex/repl")) {
-				std.file.remove(".dex/repl");
+			if (exists(dir ~ "repl")) {
+				std.file.remove(dir ~ "/repl");
 			}
-			File f = File(".dex/repl", "wb");
-			f.write(cast(string) back);
-			f.close();
+			rfwrite(cast(string) back);
 			backs ~= new Obj(cast(string) back);
-			vm.locals[$-1]["goto"] = new Obj(Func(&libreplback, backs, "repl.goto"));
 			rpc ++;
 			write("(", rpc, ")> ");
 			string text = readln;
@@ -67,6 +81,8 @@ void main(string[] args) {
 			program.walk(node);
 			vm.programs[$-1] = program;
 			*vm.ips[0] = 0;
+			vm.locals = new Vm(cast(ubyte[]) rfread()).locals;
+			vm.locals[$-1]["goto"] = new Obj(Func(&libreplback, backs, "repl.goto"));
 			Obj got = vm.run!false;
 			if (!got.peek!void) {
 				writeln(got);

@@ -88,6 +88,9 @@ Node parseNode(string str, Info info) {
 				case "if": {
 					return new Node(NodeType.IF, NodeValue(ret[1..$]));
 				}
+				case "and": {
+					return new Node(NodeType.AND, NodeValue(ret[1..$]));
+				}
 				default: {
 					break;
 				}
